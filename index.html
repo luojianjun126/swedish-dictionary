@@ -174,42 +174,44 @@
             document.getElementById('searchLoader').classList.remove('hidden');
             document.getElementById('searchLabel').classList.add('opacity-0');
 
-            const prompt = `Analyze the Swedish word or phrase: "${query}".
-Return ONLY a valid JSON object matching this structure (no markdown formatting, no \`\`\`json codeblock):
+            const promptText = `Analyze the Swedish word or phrase: "${query}".
+Return ONLY a raw JSON string without markdown markup, matching this structure:
 {
   "word": "${query}",
-  "type": "Part of speech (e.g. Substantiv (en), Verb (-ar), Pronomen)",
+  "type": "Part of speech (e.g. Substantiv (en), Verb (-ar))",
   "translation": "English translation",
   "inflections": [
-    {"label": "Form 1", "value": "word form"},
-    {"label": "Form 2", "value": "word form"}
+    {"label": "Form 1", "value": "word form"}
   ],
-  "grammar": "Simplified Chinese explanation of grammar and usage.",
+  "grammar": "Simplified Chinese grammar explanation",
   "examples": [
-    {"sv": "Swedish example sentence", "en": "English translation", "explanation": "Simplified Chinese explanation"}
+    {"sv": "Swedish example", "en": "English translation", "explanation": "Chinese explanation"}
   ]
 }`;
 
-            const apiEndpoints = [
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
-            ];
-
+            // 多模型后备请求机制，精准打印具体错误原因到 alert
+            const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
+            let lastErrorMsg = '';
             let success = false;
-            for (const endpoint of apiEndpoints) {
+
+            for (const model of models) {
                 try {
-                    const response = await fetch(endpoint, {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-[#Type]': 'application/json', 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }]
+                            contents: [{ parts: [{ text: promptText }] }]
                         })
                     });
 
-                    if (!response.ok) continue;
+                    const rawData = await res.json();
 
-                    const rawData = await response.json();
+                    if (!res.ok) {
+                        lastErrorMsg = rawData.error?.message || res.statusText;
+                        console.error(`Model ${model} failed:`, rawData);
+                        continue;
+                    }
+
                     let textResult = rawData.candidates[0].content.parts[0].text;
                     textResult = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
                     
@@ -222,12 +224,13 @@ Return ONLY a valid JSON object matching this structure (no markdown formatting,
                     success = true;
                     break;
                 } catch (err) {
-                    console.error("Endpoint failed, trying fallback...", err);
+                    lastErrorMsg = err.message;
+                    console.error(`Error querying ${model}:`, err);
                 }
             }
 
             if (!success) {
-                alert('API Key 验证失败，请检查输入的 Key 是否正确！');
+                alert(`请求失败，API 返回错误详细信息:\n${lastErrorMsg || '网络错误或跨域拦截'}\n\n建议重新复制 Key，或检查网络代理设置。`);
             }
 
             document.getElementById('searchLoader').classList.add('hidden');
