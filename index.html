@@ -189,7 +189,8 @@ Return ONLY a raw JSON string without markdown formatting, matching this exact s
   ]
 }`;
 
-            const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
+            // 使用稳定官方模型名称
+            const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
             let lastErrorMsg = '';
             let success = false;
 
@@ -229,7 +230,7 @@ Return ONLY a raw JSON string without markdown formatting, matching this exact s
             }
 
             if (!success) {
-                alert(`请求失败，API 返回错误信息:\n${lastErrorMsg || '网络错误或跨域拦截'}\n\n请确认输入的 Key 正确（必须是 AIzaSy 开头）。`);
+                alert(`请求失败，API 返回错误信息:\n${lastErrorMsg}\n\n请检查 API Key 是否为 AIzaSy 开头的有效 Key。`);
             }
 
             document.getElementById('searchLoader').classList.add('hidden');
@@ -284,7 +285,7 @@ Return ONLY a raw JSON string without markdown formatting, matching this exact s
 
         window.toggleSaveWord = function() {
             if (!currentWordData) return;
-            const idx = storagewords.findIndex(w => w.word === currentWordData.word);
+            const idx = storage.words.findIndex(w => w.word === currentWordData.word);
             if (idx > -1) {
                 storage.words.splice(idx, 1);
             } else {
