@@ -12,7 +12,6 @@
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
         .inflection-card { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: 1px solid #f1f5f9; }
         .inflection-card:hover { transform: translateY(-2px); border-color: #005293; background-color: #f0f9ff; box-shadow: 0 4px 12px rgba(0, 82, 147, 0.08); }
-        .speed-btn-active { ring: 2px; ring-offset: 2px; transform: scale(1.05); font-weight: 800; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -150,7 +149,6 @@
 
         function saveToLocal() { localStorage.setItem('swedish_vocab', JSON.stringify(storage)); }
 
-        // 绑定 Key 弹窗
         document.getElementById('openKeyModal').onclick = () => {
             document.getElementById('apiKeyInput').value = apiKey;
             document.getElementById('keyModal').classList.remove('hidden');
@@ -192,32 +190,48 @@ Return ONLY a valid JSON object matching this structure (no markdown formatting,
   ]
 }`;
 
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
-                    })
-                });
+            const apiEndpoints = [
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
+            ];
 
-                const rawData = await response.json();
-                let textResult = rawData.candidates[0].content.parts[0].text;
-                textResult = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
-                
-                const data = JSON.parse(textResult);
-                currentWordData = data;
-                renderResult(data);
-                document.getElementById('emptyState').classList.add('hidden');
-                document.getElementById('resultArea').classList.remove('hidden');
-                updateWordHeartUI();
-            } catch (err) {
-                alert('查询失败，请检查 API Key 是否有效或稍后重试！');
-                console.error(err);
-            } finally {
-                document.getElementById('searchLoader').classList.add('hidden');
-                document.getElementById('searchLabel').classList.remove('opacity-0');
+            let success = false;
+            for (const endpoint of apiEndpoints) {
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }]
+                        })
+                    });
+
+                    if (!response.ok) continue;
+
+                    const rawData = await response.json();
+                    let textResult = rawData.candidates[0].content.parts[0].text;
+                    textResult = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
+                    
+                    const data = JSON.parse(textResult);
+                    currentWordData = data;
+                    renderResult(data);
+                    document.getElementById('emptyState').classList.add('hidden');
+                    document.getElementById('resultArea').classList.remove('hidden');
+                    updateWordHeartUI();
+                    success = true;
+                    break;
+                } catch (err) {
+                    console.error("Endpoint failed, trying fallback...", err);
+                }
             }
+
+            if (!success) {
+                alert('API Key 验证失败，请检查输入的 Key 是否正确！');
+            }
+
+            document.getElementById('searchLoader').classList.add('hidden');
+            document.getElementById('searchLabel').classList.remove('opacity-0');
         };
 
         function renderResult(data) {
